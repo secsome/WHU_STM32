@@ -8,14 +8,15 @@
 #include "critical_data.hpp"
 
 extern "C" uint8_t KeyPressed;
-static critical_data<uint32_t> TemperatureLow; // current lowest temperature
-static critical_data<uint32_t> TemperatureHigh; // current highest temperature
-static critical_data<uint32_t> TemperatureCurrent; // current temperature
-static critical_data<uint32_t> IsEditing; // 0: not editing, 1: editing
-static critical_data<uint32_t> CursorPos; // ranges in [0, 5]
-static critical_data<uint32_t> EditTarget; // 0: low temperature, 1: high temperature
-static critical_data<uint32_t> EditTemperate; // ranges in [0, 999999]
-static critical_data<uint32_t> TemperatureHandleTick;
+#define SEGMENT_CRITICAL __attribute__((section(".critical")))
+SEGMENT_CRITICAL critical_data<uint32_t> TemperatureLow; // current lowest temperature
+SEGMENT_CRITICAL critical_data<uint32_t> TemperatureHigh; // current highest temperature
+SEGMENT_CRITICAL critical_data<uint32_t> TemperatureCurrent; // current temperature
+SEGMENT_CRITICAL critical_data<uint32_t> IsEditing; // 0: not editing, 1: editing
+SEGMENT_CRITICAL critical_data<uint32_t> CursorPos; // ranges in [0, 5]
+SEGMENT_CRITICAL critical_data<uint32_t> EditTarget; // 0: low temperature, 1: high temperature
+SEGMENT_CRITICAL critical_data<uint32_t> EditTemperate; // ranges in [0, 999999]
+SEGMENT_CRITICAL critical_data<uint32_t> TemperatureHandleTick;
 
 template<typename T, size_t N, typename Fn>
 static constexpr T Impl_ReadAverData(T err, Fn&& func)

@@ -169,6 +169,18 @@ SECTIONS
     _eccmram = .;       /* create a global symbol at ccmram end */
   } >CCMRAM AT> FLASH
 
+  /* Critical data section in RAM but need to be initialized only once */
+  .critical :
+  {
+    . = ALIGN(4);
+    _scritical = .;        /* create a global symbol at critical start */
+    *(.critical)           /* .critical sections */
+    *(.critical*)          /* .critical* sections */
+
+    . = ALIGN(4);
+    _ecritical = .;        /* define a global symbol at critical end */
+  } >RAM
+
   /* Uninitialized data section into "RAM" Ram type memory */
   . = ALIGN(4);
   .bss :

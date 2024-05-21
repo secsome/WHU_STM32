@@ -126,7 +126,7 @@ Infinite_Loop:
     
 g_pfnVectors:
   .word  _estack
-  .word  Reset_Handler
+  .word  Boostrap
   .word  NMI_Handler
   .word  HardFault_Handler
   .word  MemManage_Handler
@@ -506,3 +506,15 @@ g_pfnVectors:
 
    .weak      FPU_IRQHandler                  
    .thumb_set FPU_IRQHandler,Default_Handler  
+
+.section  .text.Boostrap
+.weak  Boostrap
+.type  Boostrap, %function
+Boostrap:  
+  ldr  r0, =g_pfnVectors
+  ldr  r1, =Reset_Handler
+  str  r1, [r0, #4]
+  ldr  sp, =_estack
+  bl Bootstrap_InitCriticalData
+  b Reset_Handler
+.size  Boostrap, .-Boostrap
