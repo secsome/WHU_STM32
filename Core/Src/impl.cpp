@@ -12,10 +12,9 @@ static critical_data<uint32_t> TemperatureLow; // current lowest temperature
 static critical_data<uint32_t> TemperatureHigh; // current highest temperature
 static critical_data<uint32_t> TemperatureCurrent; // current temperature
 static critical_data<uint32_t> IsEditing; // 0: not editing, 1: editing
-static critical_data<uint32_t> CursorPos; // ranges in [0, 2]
+static critical_data<uint32_t> CursorPos; // ranges in [0, 5]
 static critical_data<uint32_t> EditTarget; // 0: low temperature, 1: high temperature
-static critical_data<uint32_t> EditDigitPart; // ranges in [0, 999]
-static critical_data<uint32_t> EditDecimalPart; // ranges in [0, 999]
+static critical_data<uint32_t> EditTemperate; // ranges in [0, 999999]
 static critical_data<uint32_t> TemperatureHandleTick;
 
 template<typename T, size_t N, typename Fn>
@@ -58,14 +57,12 @@ void Impl_OnLoopPrepare()
         IsEditing = 0;
         CursorPos = 0;
         EditTarget = 0;
-        EditDigitPart = 0;
-        EditDecimalPart = 0;
+        EditTemperate = 0;
     } while (
         !IsEditing.is_valid() || 
         !CursorPos.is_valid() || 
         !EditTarget.is_valid() ||
-        !EditDigitPart.is_valid() ||
-        !EditDecimalPart.is_valid()
+        !EditTemperate.is_valid()
     );
 
     // Stop flash
@@ -178,8 +175,7 @@ static bool Impl_OnKeyDown(uint8_t key, uint8_t repeat, uint8_t func_key)
 
         EditTarget = 0;
         CursorPos = 0;
-        EditDigitPart = TemperatureLow / 8 / 1000;
-        EditDecimalPart = TemperatureLow / 8 % 1000;
+        EditTemperate = TemperatureLow / 8 % 1000000;
         break;
     }
     case ZLG7290_KEY_B: // switch to high temperate
@@ -189,8 +185,7 @@ static bool Impl_OnKeyDown(uint8_t key, uint8_t repeat, uint8_t func_key)
 
         EditTarget = 1;
         CursorPos = 0;
-        EditDigitPart = TemperatureHigh / 8 / 1000;
-        EditDecimalPart = TemperatureHigh / 8 % 1000;
+        EditTemperate = TemperatureHigh / 8 % 1000000;
         break;
     }
     case ZLG7290_KEY_C: // move cursor left
@@ -205,7 +200,7 @@ static bool Impl_OnKeyDown(uint8_t key, uint8_t repeat, uint8_t func_key)
             break;
         }
 
-        CursorPos = (CursorPos + 2) % 3;
+        CursorPos = (CursorPos + 5) % 6;
         break;
     }
     case ZLG7290_KEY_D: // move cursor right
@@ -220,7 +215,7 @@ static bool Impl_OnKeyDown(uint8_t key, uint8_t repeat, uint8_t func_key)
             break;
         }
 
-        CursorPos = (CursorPos + 1) % 3;
+        CursorPos = (CursorPos + 1) % 6;
         break;
     }
     case ZLG7290_KEY_STAR: // enter edit mode, or exit without saving
@@ -236,8 +231,7 @@ static bool Impl_OnKeyDown(uint8_t key, uint8_t repeat, uint8_t func_key)
             is_editing = true;
             CursorPos = 0;
             EditTarget = 0;
-            EditDigitPart = TemperatureLow / 8 / 1000;
-            EditDecimalPart = TemperatureLow / 8 % 1000;
+            EditTemperate = TemperatureLow / 8 % 1000000;
         }
         break;
     }
@@ -246,7 +240,7 @@ static bool Impl_OnKeyDown(uint8_t key, uint8_t repeat, uint8_t func_key)
         if (!is_editing) // not in edit mode, just ignore it
             break;
 
-        if (!EditDigitPart.is_valid() || !EditDecimalPart.is_valid() || !EditTarget.is_valid())
+        if (!EditTemperate.is_valid() || !EditTarget.is_valid())
         {
             // If the data is invalid, we need to reinitialize the data
             Impl_OnErrorSound();
@@ -254,13 +248,13 @@ static bool Impl_OnKeyDown(uint8_t key, uint8_t repeat, uint8_t func_key)
             return false;
         }
 
-        // Combine two parts of the temperature
-        const uint32_t value = (EditDigitPart * 1000 + EditDecimalPart) * 8;
+        // Save the changes and exit editing mode
+        const uint32_t value = EditTemperate * 8;
         if (EditTarget == 0)
             TemperatureLow = value;
         else if (EditTarget == 1)
             TemperatureHigh = value;
-        is_editing = false; // Save the changes and exit editing mode
+        is_editing = false;
         break;
     }
     default:
@@ -287,45 +281,26 @@ static bool Impl_OnKeyDown(uint8_t key, uint8_t repeat, uint8_t func_key)
             break;
         }
 
-        if (EditTarget == 0)
-        {
-            uint32_t value = EditDigitPart;
-            if (CursorPos == 0)
-                value = value / 10 * 10 + key_num;
-            else if (CursorPos == 1)
-                value = value % 10 + value / 100 * 100 + key_num * 10;
-            else if (CursorPos == 2)
-                value = value % 100 + key_num * 100;
-            else
-            {
-                CursorPos = 0;
-                Impl_OnErrorSound();
-                break;
-            }
-            EditDigitPart = value;
-        }
-        else if (EditTarget == 1)
-        {
-            uint32_t value = EditDecimalPart;
-            if (CursorPos == 0)
-                value = value / 10 * 10 + key_num;
-            else if (CursorPos == 1)
-                value = value % 10 + value / 100 * 100 + key_num * 10;
-            else if (CursorPos == 2)
-                value = value % 100 + key_num * 100;
-            else
-            {
-                CursorPos = 0;
-                Impl_OnErrorSound();
-                break;
-            }
-            EditDecimalPart = value;
-        }
+        uint32_t new_value = EditTemperate;
+        if (CursorPos == 5)
+            new_value = new_value / 10 * 10 + key_num;
+        else if (CursorPos == 4)
+            new_value = new_value % 10 + new_value / 100 * 100 + key_num * 10;
+        else if (CursorPos == 3)
+            new_value = new_value % 100 + new_value / 1000 * 1000 + key_num * 100;
+        else if (CursorPos == 2)
+            new_value = new_value % 1000 + new_value / 10000 * 10000 + key_num * 1000;
+        else if (CursorPos == 1)
+            new_value = new_value % 10000 + new_value / 100000 * 100000 + key_num * 10000;
+        else if (CursorPos == 0)
+            new_value = new_value % 100000 + key_num * 100000;
         else
         {
-            EditTarget = 0;
+            CursorPos = 0;
             Impl_OnErrorSound();
+            break;
         }
+        EditTemperate = new_value;
     } while(false);
 
     // Update flashing state
@@ -358,66 +333,31 @@ static bool Impl_OnKeyDown(uint8_t key, uint8_t repeat, uint8_t func_key)
             ZLG7290_DISPLAY_NUM4, ZLG7290_DISPLAY_NUM5, ZLG7290_DISPLAY_NUM6, ZLG7290_DISPLAY_NUM7,
             ZLG7290_DISPLAY_NUM8, ZLG7290_DISPLAY_NUM9
         };
-        if (!EditDigitPart.is_valid())
+        if (!EditTemperate.is_valid())
         {
-            EditDigitPart = 0;
-            Impl_OnErrorSound();
-        }
-        if (!EditDecimalPart.is_valid())
-        {
-            EditDecimalPart = 0;
+            EditTemperate = 0;
             Impl_OnErrorSound();
         }
         uint8_t display[8];
         display[0] = display[7] = 0;
-        display[1] = display_table[EditDigitPart / 100 % 10];
-        display[2] = display_table[(EditDigitPart % 100) / 10];
-        display[3] = display_table[EditDigitPart % 10] | ZLG7290_DISPLAY_DOT;
-        display[4] = display_table[EditDecimalPart / 100 % 10];
-        display[5] = display_table[(EditDecimalPart % 100) / 10];
-        display[6] = display_table[EditDecimalPart % 10];
+        display[1] = display_table[EditTemperate / 100000 % 10];
+        display[2] = display_table[EditTemperate / 10000 % 10];
+        display[3] = display_table[EditTemperate / 1000 % 10] | ZLG7290_DISPLAY_DOT;
+        display[4] = display_table[EditTemperate / 100 % 10];
+        display[5] = display_table[EditTemperate / 10 % 10];
+        display[6] = display_table[EditTemperate % 10];
         ZLG7290_Write(&hi2c1, ZLG7290_ADDR_DPRAM0, display, sizeof(display));
 
         // Start flash
         uint8_t cmd[2];
         cmd[0] = 0b01110000;
-        if (EditTarget == 0)
-        {
-            if (CursorPos == 0)
-                cmd[1] = 0b00001000;
-            else if (CursorPos == 1)
-                cmd[1] = 0b00000100;
-            else if (CursorPos == 2)
-                cmd[1] = 0b00000010;
-            else
-            {
-                CursorPos = 0;
-                Impl_OnErrorSound();
-                return false;
-            }
-        }
-        else if (EditTarget == 1)
-        {
-            if (CursorPos == 0)
-                cmd[1] = 0b01000000;
-            else if (CursorPos == 1)
-                cmd[1] = 0b00100000;
-            else if (CursorPos == 2)
-                cmd[1] = 0b00010000;
-            else
-            {
-                CursorPos = 0;
-                Impl_OnErrorSound();
-                return false;
-            }
-        }
-        else
+        if (CursorPos >= 6)
         {
             CursorPos = 0;
-            EditTarget = 0;
             Impl_OnErrorSound();
             return false;
         }
+        cmd[1] = 1 << (CursorPos + 1);
         ZLG7290_Write(&hi2c1, ZLG7290_ADDR_CMDBUF0, cmd, sizeof(cmd));
         
         IsEditing = 1;
