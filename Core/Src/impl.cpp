@@ -100,7 +100,35 @@ void Impl_OnLoopBody()
 
 static void Impl_OnKeyDown(uint8_t key, uint8_t repeat, uint8_t func_key)
 {
-    // TODO: Implement key handling
+    UNUSED(repeat);
+    UNUSED(func_key);
+
+    switch (key)
+    {
+    case ZLG7290_KEY_0: // inputs
+    case ZLG7290_KEY_1:
+    case ZLG7290_KEY_2:
+    case ZLG7290_KEY_3:
+    case ZLG7290_KEY_4:
+    case ZLG7290_KEY_5:
+    case ZLG7290_KEY_6:
+    case ZLG7290_KEY_7:
+    case ZLG7290_KEY_8:
+    case ZLG7290_KEY_9:
+        break;
+    case ZLG7290_KEY_A: // switch to low temperate
+        break;
+    case ZLG7290_KEY_B: // switch to high temperate
+        break;
+    case ZLG7290_KEY_C: // move cursor left
+        break;
+    case ZLG7290_KEY_D: // move cursor right
+        break;
+    case ZLG7290_KEY_STAR: // enter edit mode, press again to exit without saving
+        break;
+    case ZLG7290_KEY_POUND: // confirm, apply the changes
+        break;
+    }
 }
 
 void Impl_OnTemperatureOutOfRange()

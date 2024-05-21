@@ -34,6 +34,26 @@ enum
 
 enum
 {
+    ZLG7290_KEY_0       = 0x03,
+    ZLG7290_KEY_1       = 0x1C,
+    ZLG7290_KEY_2       = 0x1B,
+    ZLG7290_KEY_3       = 0x1A,
+    ZLG7290_KEY_4       = 0x14,
+    ZLG7290_KEY_5       = 0x13,
+    ZLG7290_KEY_6       = 0x12,
+    ZLG7290_KEY_7       = 0x0C,
+    ZLG7290_KEY_8       = 0x0B,
+    ZLG7290_KEY_9       = 0x0A,
+    ZLG7290_KEY_A       = 0x19,
+    ZLG7290_KEY_B       = 0x11,
+    ZLG7290_KEY_C       = 0x09,
+    ZLG7290_KEY_D       = 0x01,
+    ZLG7290_KEY_STAR    = 0x04,
+    ZLG7290_KEY_POUND   = 0x02,
+};
+
+enum
+{
     ZLG7290_DISPLAY_DOT         = 1 << 0,
     ZLG7290_DISPLAY_MIDDLE      = 1 << 1,
     ZLG7290_DISPLAY_LEFTTOP     = 1 << 2,
