@@ -335,6 +335,12 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
+
+  // Try to restart the system if an error occurs
+  // TODO: Try to not lose the current state
+  extern void Reset_Handler();
+  Reset_Handler();
+
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
   while (1)

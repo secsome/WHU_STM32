@@ -28,10 +28,5 @@ lm75a_temp_t LM75A_GetTemp()
 
 double LM75A_ParseTemp(lm75a_temp_t temp)
 {
-	double value;
-	if (temp & (1 << 16))
-		value = ((!temp) + 1) * 0.125;
-	else
-		value = temp * 0.125;
-	return value;	
+	return temp * 0.125;	
 }

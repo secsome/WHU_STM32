@@ -34,7 +34,6 @@ static constexpr T Impl_ReadAverData(T err, Fn&& func)
 }
 
 static void Impl_OnKeyDown(uint8_t key, uint8_t repeat, uint8_t func_key);
-static void Impl_OnTemperatureChanged(double value);
 static void Impl_OnTemperatureOutOfRange();
 
 void Impl_OnLoopPrepare()
@@ -68,16 +67,28 @@ void Impl_OnLoopBody()
         HAL_Delay(kEditingDelay);
     }
 
+    // This error can be handled easily by just setting the editing state to 0,
+    // So we don't need to call Error_Handler here
+    if (!IsEditing.is_valid())
+    {
+        IsEditing = 0;
+        return;
+    }
+
     if (IsEditing != 0)
     {
         const uint16_t temp = Impl_ReadAverData<uint16_t, 5>(LM75A_RESULT_ERROR, LM75A_GetTemp);
         if (temp != LM75A_RESULT_ERROR)
         {
             const double value = LM75A_ParseTemp(temp);
-            if (Impl_CloseEnough(TemperatureCurrent, value))
-                Impl_OnTemperatureChanged(value);
+            TemperatureCurrent = value;
         }
 
+        if (!TemperatureCurrent.is_valid() || !TemperatureLow.is_valid() || !TemperatureHigh.is_valid())
+        {
+            Impl_OnLoopPrepare();
+            return;
+        }
         if (TemperatureCurrent < TemperatureLow || TemperatureCurrent > TemperatureHigh)
             Impl_OnTemperatureOutOfRange();
         
@@ -90,11 +101,6 @@ void Impl_OnLoopBody()
 static void Impl_OnKeyDown(uint8_t key, uint8_t repeat, uint8_t func_key)
 {
     // TODO: Implement key handling
-}
-
-static void Impl_OnTemperatureChanged(double value)
-{
-    TemperatureCurrent = value;
 }
 
 void Impl_OnTemperatureOutOfRange()
