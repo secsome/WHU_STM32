@@ -16,10 +16,10 @@
             ],
             "compilerPath": "C:/ST/STM32CubeIDE_1.15.1/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.12.3.rel1.win32_1.0.100.202403111256/tools/bin/arm-none-eabi-gcc.exe",
             "intelliSenseMode": "gcc-arm",
-            "cStandard": "gnu11",
+            "cStandard": "gnu17",
             "compilerArgs": [
                 "-mcpu=cortex-m4",
-                "-std=gnu11",
+                "-std=gnu17",
                 "-g3",
                 "-O0",
                 "-ffunction-sections",
@@ -33,7 +33,8 @@
                 "-mfpu=fpv4-sp-d16",
                 "-mfloat-abi=hard",
                 "-mthumb"
-            ]
+            ],
+            "cppStandard": "gnu++20"
         }
     ],
     "version": 4

@@ -4,6 +4,25 @@
         "lm75a.h": "c",
         "stm32f4xx_hal.h": "c",
         "i2c.h": "c",
-        "zlg7290.h": "c"
+        "zlg7290.h": "c",
+        "array": "cpp",
+        "stop_token": "cpp",
+        "thread": "cpp",
+        "tuple": "cpp",
+        "*.tcc": "cpp",
+        "concepts": "cpp",
+        "deque": "cpp",
+        "string": "cpp",
+        "unordered_map": "cpp",
+        "vector": "cpp",
+        "memory": "cpp",
+        "string_view": "cpp",
+        "ostream": "cpp",
+        "streambuf": "cpp",
+        "functional": "cpp",
+        "type_traits": "cpp",
+        "utility": "cpp",
+        "algorithm": "cpp",
+        "main.h": "c"
     }
 }

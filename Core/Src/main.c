@@ -25,7 +25,7 @@
 #include "beep.h"
 #include "zlg7290.h"
 
-#include "main_loop.h"
+#include "impl.h"
 
 /* USER CODE END Includes */
 
@@ -45,8 +45,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+CRC_HandleTypeDef hcrc;
 I2C_HandleTypeDef hi2c1;
-
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
@@ -59,6 +59,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_CRC_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -99,9 +100,11 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   MX_USART1_UART_Init();
+  MX_CRC_Init();
   /* USER CODE BEGIN 2 */
   LM75A_SetMode(LM75A_ADDR_CONF, LM75A_MODE_WORKING);
-
+  
+  Impl_OnLoopPrepare();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -111,7 +114,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    MainLoop_Body();
+    Impl_OnLoopBody();
   }
   /* USER CODE END 3 */
 }
@@ -159,6 +162,32 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief CRC Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_CRC_Init(void)
+{
+
+  /* USER CODE BEGIN CRC_Init 0 */
+
+  /* USER CODE END CRC_Init 0 */
+
+  /* USER CODE BEGIN CRC_Init 1 */
+
+  /* USER CODE END CRC_Init 1 */
+  hcrc.Instance = CRC;
+  if (HAL_CRC_Init(&hcrc) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN CRC_Init 2 */
+
+  /* USER CODE END CRC_Init 2 */
+
 }
 
 /**
