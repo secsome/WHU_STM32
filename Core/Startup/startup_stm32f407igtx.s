@@ -110,8 +110,12 @@ LoopFillZerobss:
 */
     .section  .text.Default_Handler,"ax",%progbits
 Default_Handler:
-Infinite_Loop:
-  b  Infinite_Loop
+// Infinite_Loop:
+  // b  Infinite_Loop
+  // The default handler really shouldn't be called. If it is called, it means
+  // that there is an fatal error in our code somewhere. So we just reboot the
+  // system to recover from the error. 
+  b Reset_Handler
   .size  Default_Handler, .-Default_Handler
 /******************************************************************************
 *
