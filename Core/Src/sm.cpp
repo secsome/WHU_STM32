@@ -34,12 +34,7 @@ void SM_Init()
         TemperatureCurrent = (TemperatureLow + TemperatureHigh) / 2;
         if (TemperatureLow > TemperatureHigh)
             continue;
-    } while (
-        !TemperatureHandleTick ||
-        !TemperatureLow || 
-        !TemperatureHigh || 
-        !TemperatureCurrent
-    );
+    } while (!TemperatureHandleTick || !TemperatureLow || !TemperatureHigh || !TemperatureCurrent);
 
     do
     {
@@ -47,12 +42,7 @@ void SM_Init()
         CursorPos = 0;
         EditTarget = 0;
         EditTemperate = 0;
-    } while (
-        !IsEditing || 
-        !CursorPos || 
-        !EditTarget ||
-        !EditTemperate
-    );
+    } while (!IsEditing || !CursorPos || !EditTarget || !EditTemperate);
 
     // Stop flash
     uint8_t cmd[2];
@@ -240,7 +230,8 @@ SM_STATE(SM_OPT_ON_KEY_PRESSED)
     if (!KeyData)
         KeyData = 0;
 
-    if ((KeyData & 0xff) == 0)
+    uint32_t key = KeyData & 0xff;
+    if (key == 0)
         return SM_OPT_READ_KEY_DELAY;
     
     if (!IsEditing)
@@ -249,7 +240,7 @@ SM_STATE(SM_OPT_ON_KEY_PRESSED)
         return SM_OPT_READ_KEY_DELAY;
     }
 
-    switch (KeyData & 0xff)
+    switch (key)
     {
     case ZLG7290_KEY_0: KeyNum = 0; return SM_OPT_UPDATE_KEYNUM;
     case ZLG7290_KEY_1: KeyNum = 1; return SM_OPT_UPDATE_KEYNUM;
