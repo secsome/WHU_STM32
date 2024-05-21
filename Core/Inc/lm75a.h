@@ -28,8 +28,8 @@ extern "C" {
 // OS故障队列
 #define LM75A_EQ_DEFAULT 0x00
 
-#define LM75A_RESULT_OK 0
-#define LM75A_RESULT_ERROR -1
+#define LM75A_RESULT_OK (uint16_t)0
+#define LM75A_RESULT_ERROR (uint16_t)-1
 
 // Functions
 uint8_t LM75A_SetMode(uint8_t reg, uint8_t mode);

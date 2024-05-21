@@ -26,6 +26,7 @@ static constexpr T Impl_ReadAverData(T err, Fn&& func)
         T tmp = func();
         if (tmp == err)
             return err;
+        result += tmp;
     }
     return result / N;
 }
@@ -38,8 +39,8 @@ void Impl_OnLoopPrepare()
 {
     do
     {
-        TemperatureLow = 28 * 8;
-        TemperatureHigh = 32 * 8;
+        TemperatureLow = 25 * 8 * 1000;
+        TemperatureHigh = 35 * 8 * 1000;
         TemperatureCurrent = (TemperatureLow + TemperatureHigh) / 2;
         if (TemperatureLow > TemperatureHigh)
             continue;
@@ -69,6 +70,16 @@ void Impl_OnLoopPrepare()
     cmd[0] = 0b01110000;
     cmd[1] = 0b00000000;
     ZLG7290_Write(&hi2c1, ZLG7290_ADDR_CMDBUF0, cmd, sizeof(cmd));
+
+    // Init display
+    uint8_t display[8] = 
+    {
+        ZLG7290_DISPLAY_MIDDLE, ZLG7290_DISPLAY_MIDDLE,
+        ZLG7290_DISPLAY_MIDDLE, ZLG7290_DISPLAY_MIDDLE,
+        ZLG7290_DISPLAY_MIDDLE, ZLG7290_DISPLAY_MIDDLE,
+        ZLG7290_DISPLAY_MIDDLE, ZLG7290_DISPLAY_MIDDLE
+    };
+    ZLG7290_Write(&hi2c1, ZLG7290_ADDR_DPRAM0, display, sizeof(display));
 }
 
 void Impl_OnLoopBody()
@@ -97,11 +108,17 @@ void Impl_OnLoopBody()
         return;
     }
 
-    if (IsEditing != 0)
+    if (IsEditing == 0)
     {
         const uint16_t temp = Impl_ReadAverData<uint16_t, 5>(LM75A_RESULT_ERROR, LM75A_GetTemp);
         if (temp != LM75A_RESULT_ERROR)
             TemperatureCurrent = static_cast<uint32_t>(temp) * 1000;
+        else
+        {
+            // If we cannot get temperature, just skip this routine raise a error
+            Impl_OnErrorSound();
+            return;
+        }
 
         if (!TemperatureCurrent.is_valid() || !TemperatureLow.is_valid() || !TemperatureHigh.is_valid())
         {

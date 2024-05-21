@@ -100,7 +100,7 @@ critical_data<T>& critical_data<T>::operator=(critical_data&& other) noexcept
 template<typename T>
 uint32_t critical_data<T>::calculate_crc() const noexcept
 {
-    return HAL_CRC_Calculate(&hcrc, (uint32_t*)&data_, sizeof(data_));
+    return HAL_CRC_Calculate(&hcrc, (uint32_t*)&data_, sizeof(data_) / sizeof(uint32_t));
 }
 
 template<typename T>
