@@ -37,6 +37,8 @@ public:
     uint32_t calculate_crc() const noexcept;
     uint32_t update_crc(uint32_t new_crc) const noexcept;
 
+    bool operator!() const noexcept;
+
     operator volatile T&() noexcept;
     operator volatile const T&() const noexcept;
 
@@ -123,6 +125,12 @@ void critical_data<T>::set(const T& data) noexcept
 }
 
 template<typename T>
+bool critical_data<T>::operator!() const noexcept
+{
+    return !is_valid();
+}
+
+template<typename T>
 critical_data<T>::operator volatile T&() noexcept
 {
     return data_;
@@ -146,5 +154,7 @@ bool critical_data<T>::is_valid() const noexcept
 {
     return crc_ == calculate_crc();
 }
+
+#define CRITICAL(T, N) __attribute__((section(".critical"))) critical_data<T> N
 
 #endif

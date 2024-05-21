@@ -1,5 +1,5 @@
-#ifndef __IMPL_H
-#define __IMPL_H
+#ifndef __SM_H
+#define __SM_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -7,8 +7,8 @@ extern "C" {
 
 #include "stm32f4xx_hal.h"
 
-void Impl_OnLoopPrepare();
-void Impl_OnLoopBody();
+void SM_Init();
+void SM_Run();
 
 #ifdef __cplusplus
 }

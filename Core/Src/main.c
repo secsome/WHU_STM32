@@ -25,7 +25,7 @@
 #include "beep.h"
 #include "zlg7290.h"
 
-#include "impl.h"
+#include "sm.h"
 
 /* USER CODE END Includes */
 
@@ -50,7 +50,6 @@ I2C_HandleTypeDef hi2c1;
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
-uint8_t KeyPressed = 0;
 
 /* USER CODE END PV */
 
@@ -102,9 +101,7 @@ int main(void)
   MX_USART1_UART_Init();
   MX_CRC_Init();
   /* USER CODE BEGIN 2 */
-  LM75A_SetMode(LM75A_ADDR_CONF, LM75A_MODE_WORKING);
-  
-  Impl_OnLoopPrepare();
+  SM_Init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -114,7 +111,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    Impl_OnLoopBody();
+    SM_Run();
   }
   /* USER CODE END 3 */
 }
@@ -314,18 +311,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-  switch (GPIO_Pin)
-  {
-  case GPIO_PIN_13:
-    KeyPressed = 1;
-    break;
-  
-  default:
-    break;
-  }
-}
 /* USER CODE END 4 */
 
 /**
