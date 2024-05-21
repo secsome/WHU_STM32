@@ -23,6 +23,8 @@
         "type_traits": "cpp",
         "utility": "cpp",
         "algorithm": "cpp",
-        "main.h": "c"
+        "main.h": "c",
+        "compare": "cpp",
+        "beep.h": "c"
     }
 }
