@@ -8,6 +8,7 @@
 #include "beep.h"
 #include "zlg7290.h"
 
+CRITICAL(uint32_t, SM_Inititalized);
 CRITICAL(uint32_t, SM_Operation);
 CRITICAL(uint32_t, KeyPressed);
 CRITICAL(uint32_t, KeyData);
@@ -26,6 +27,9 @@ constexpr uint32_t SM_TEMPERATURE_HIGH_INIT = 35 * 8 * 1000;
 
 void SM_Init()
 {
+    if (SM_Inititalized.is_valid() && SM_Inititalized)
+        return;
+        
     do
     {
         TemperatureHandleTick = 0;
@@ -59,6 +63,8 @@ void SM_Init()
         ZLG7290_DISPLAY_MIDDLE, ZLG7290_DISPLAY_MIDDLE
     };
     ZLG7290_Write(&hi2c1, ZLG7290_ADDR_DPRAM0, display, sizeof(display));
+
+    SM_Inititalized = 1;
 }
 
 #define SM_CASE(x) case x: SM_Operation = _##x(); break
