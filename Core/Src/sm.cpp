@@ -171,10 +171,24 @@ static constexpr T ReadAverData(T err, Fn&& func)
     }
     return result / N;
 }
+template<size_t Retry, typename T, typename Fn>
+static constexpr T ReadWithRetry(T err, Fn&& func)
+{
+    T result = T{};
+    for (size_t i = 0; i < Retry; ++i)
+    {
+        T tmp = func();
+        if (tmp != err)
+            return tmp;
+    }
+    return err;
+}
 SM_STATE(SM_OPT_READTEMP)
 {
     LM75A_SetMode(LM75A_ADDR_CONF, LM75A_MODE_WORKING);
-    const uint16_t temp = ReadAverData<uint16_t, 5>(LM75A_RESULT_ERROR, LM75A_GetTemp);
+    const uint16_t temp = ReadAverData<uint16_t, 5>(LM75A_RESULT_ERROR, 
+        ReadWithRetry<5>(LM75A_RESULT_ERROR, LM75A_GetTemp)
+    );
     LM75A_SetMode(LM75A_ADDR_CONF, LM75A_MODE_SHUTDOWN);
     if (temp != LM75A_RESULT_ERROR)
     {
@@ -182,13 +196,28 @@ SM_STATE(SM_OPT_READTEMP)
         return SM_OPT_IS_TEMP_IN_RANGE;
     }
     
+    // Deadlock might happen here, so we try to 
+    // recover the state by calling RESET_HANDLER
     return SM_OPT_RESETHANDLER;
 }
 
 SM_STATE(SM_OPT_IS_TEMP_IN_RANGE)
 {
-    if (!TemperatureLow || !TemperatureHigh || !TemperatureCurrent)
-        return SM_OPT_RESETHANDLER;
+    if (!TemperatureLow)
+    {
+        TemperatureLow = SM_TEMPERATURE_LOW_INIT;
+        return SM_OPT_READ_KEY_INPUT;
+    }
+    if (!TemperatureHigh)
+    {
+        TemperatureHigh = SM_TEMPERATURE_HIGH_INIT;
+        return SM_OPT_READ_KEY_INPUT;
+    }
+    if (!TemperatureCurrent)
+    {
+        TemperatureCurrent = (TemperatureLow + TemperatureHigh) / 2;
+        return SM_OPT_READ_KEY_INPUT;
+    }
 
     if (TemperatureCurrent < TemperatureLow || TemperatureCurrent > TemperatureHigh)
         return SM_OPT_TEMP_OUT_OF_RANGE;
