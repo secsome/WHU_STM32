@@ -25,6 +25,30 @@ CRITICAL(uint32_t, TemperatureHandleTick);
 constexpr uint32_t SM_TEMPERATURE_LOW_INIT = 25 * 8 * 1000;
 constexpr uint32_t SM_TEMPERATURE_HIGH_INIT = 35 * 8 * 1000;
 
+#define SM_CASE(x) case x: SM_Operation = _##x(); break
+#define SM_STATE(x) static uint32_t _##x()
+
+enum
+{
+    SM_OPT_IS_EDITING,
+    SM_OPT_CHECK_TEMPTICK,
+    SM_OPT_READTEMP,
+    SM_OPT_IS_TEMP_IN_RANGE,
+    SM_OPT_TEMP_OUT_OF_RANGE,
+    SM_OPT_READ_KEY_INPUT,
+    SM_OPT_READ_KEY_DELAY,
+    SM_OPT_ON_KEY_PRESSED,
+    SM_OPT_UPDATE_KEYNUM,
+    SM_OPT_SWITCH_TARGET_LOW,
+    SM_OPT_SWITCH_TARGET_HIGH,
+    SM_OPT_MOVE_CURSOR_LEFT,
+    SM_OPT_MOVE_CURSOR_RIGHT,
+    SM_OPT_SWITCH_EDIT_MODE,
+    SM_OPT_SAVE_AND_EXIT_EDIT,
+    SM_OPT_UPDATE_DISPLAY,
+    SM_OPT_RESETHANDLER,
+};
+
 void SM_Init()
 {
     if (SM_Inititalized.is_valid() && SM_Inititalized)
@@ -63,33 +87,10 @@ void SM_Init()
         ZLG7290_DISPLAY_MIDDLE, ZLG7290_DISPLAY_MIDDLE
     };
     ZLG7290_Write(&hi2c1, ZLG7290_ADDR_DPRAM0, display, sizeof(display));
+    SM_Operation = SM_OPT_IS_EDITING;
 
     SM_Inititalized = 1;
 }
-
-#define SM_CASE(x) case x: SM_Operation = _##x(); break
-#define SM_STATE(x) static uint32_t _##x()
-
-enum
-{
-    SM_OPT_IS_EDITING,
-    SM_OPT_CHECK_TEMPTICK,
-    SM_OPT_READTEMP,
-    SM_OPT_IS_TEMP_IN_RANGE,
-    SM_OPT_TEMP_OUT_OF_RANGE,
-    SM_OPT_READ_KEY_INPUT,
-    SM_OPT_READ_KEY_DELAY,
-    SM_OPT_ON_KEY_PRESSED,
-    SM_OPT_UPDATE_KEYNUM,
-    SM_OPT_SWITCH_TARGET_LOW,
-    SM_OPT_SWITCH_TARGET_HIGH,
-    SM_OPT_MOVE_CURSOR_LEFT,
-    SM_OPT_MOVE_CURSOR_RIGHT,
-    SM_OPT_SWITCH_EDIT_MODE,
-    SM_OPT_SAVE_AND_EXIT_EDIT,
-    SM_OPT_UPDATE_DISPLAY,
-    SM_OPT_RESETHANDLER,
-};
 
 SM_STATE(SM_OPT_IS_EDITING);
 SM_STATE(SM_OPT_CHECK_TEMPTICK);
@@ -171,24 +172,12 @@ static constexpr T ReadAverData(T err, Fn&& func)
     }
     return result / N;
 }
-template<size_t Retry, typename T, typename Fn>
-static constexpr T ReadWithRetry(T err, Fn&& func)
-{
-    T result = T{};
-    for (size_t i = 0; i < Retry; ++i)
-    {
-        T tmp = func();
-        if (tmp != err)
-            return tmp;
-    }
-    return err;
-}
+
 SM_STATE(SM_OPT_READTEMP)
 {
     LM75A_SetMode(LM75A_ADDR_CONF, LM75A_MODE_WORKING);
-    const uint16_t temp = ReadAverData<uint16_t, 5>(LM75A_RESULT_ERROR, 
-        ReadWithRetry<5>(LM75A_RESULT_ERROR, LM75A_GetTemp)
-    );
+    
+    const lm75a_temp_t temp = ReadAverData<lm75a_temp_t, 5>(LM75A_RESULT_ERROR, LM75A_GetTemp);
     LM75A_SetMode(LM75A_ADDR_CONF, LM75A_MODE_SHUTDOWN);
     if (temp != LM75A_RESULT_ERROR)
     {
@@ -244,6 +233,7 @@ SM_STATE(SM_OPT_READ_KEY_INPUT)
     if (!KeyPressed || KeyPressed == 0)
         return SM_OPT_IS_EDITING;
     
+    KeyPressed = 0;
     uint8_t buffer[3];
     auto status = ZLG7290_Read(&hi2c1, ZLG7290_ADDR_KEY, buffer, sizeof(buffer));
     if (status != HAL_OK)
