@@ -76,7 +76,9 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+  extern void Boostrap();
+  Boostrap();
+  
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -93,6 +95,9 @@ int main(void)
 
   /* USER CODE BEGIN SysInit */
 
+  // Delay for hardware reset
+  HAL_Delay(50);
+  
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */

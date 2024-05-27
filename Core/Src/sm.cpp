@@ -8,6 +8,7 @@
 #include "beep.h"
 #include "zlg7290.h"
 
+CRITICAL(uint32_t, SM_ResetJumpBack);
 CRITICAL(uint32_t, SM_Inititalized);
 CRITICAL(uint32_t, SM_Operation);
 CRITICAL(uint32_t, KeyPressed);
@@ -52,7 +53,14 @@ enum
 void SM_Init()
 {
     if (SM_Inititalized.is_valid() && SM_Inititalized)
+    {
+        if (SM_ResetJumpBack.is_valid())
+        {
+            const auto jmp_back = SM_ResetJumpBack.get();
+            SM_Operation = jmp_back;
+        }
         return;
+    }
         
     do
     {
@@ -187,6 +195,7 @@ SM_STATE(SM_OPT_READTEMP)
     
     // Deadlock might happen here, so we try to 
     // recover the state by calling RESET_HANDLER
+    SM_ResetJumpBack = SM_OPT_READTEMP;
     return SM_OPT_RESETHANDLER;
 }
 
@@ -347,6 +356,7 @@ SM_STATE(SM_OPT_SWITCH_TARGET_LOW)
         return SM_OPT_UPDATE_DISPLAY;
     }
 
+    IsEditing = 1;
     EditTarget = 0;
     CursorPos = 0;
 
@@ -365,6 +375,7 @@ SM_STATE(SM_OPT_SWITCH_TARGET_HIGH)
         return SM_OPT_UPDATE_DISPLAY;
     }
 
+    IsEditing = 1;
     EditTarget = 1;
     CursorPos = 0;
 
@@ -448,7 +459,6 @@ SM_STATE(SM_OPT_SAVE_AND_EXIT_EDIT)
 
     IsEditing = 0;
     CursorPos = 0;
-    EditTarget = 0;
     if (!EditTarget)
     {
         EditTarget = 0;
