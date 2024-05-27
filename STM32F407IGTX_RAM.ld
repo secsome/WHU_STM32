@@ -162,6 +162,18 @@ SECTIONS
     _ecritical = .;        /* define a global symbol at critical end */
   } >RAM
 
+  /* Backup data section in RAM but need to be initialized only once */
+  .backup :
+  {
+    . = ALIGN(4);
+    _sbackup = .;        /* create a global symbol at backup start */
+    *(.backup)           /* .backup sections */
+    *(.backup*)          /* .backup* sections */
+
+    . = ALIGN(4);
+    _ebackup = .;        /* define a global symbol at backup end */
+  } >RAM
+
   _siccmram = LOADADDR(.ccmram);
 
   /* CCM-RAM section

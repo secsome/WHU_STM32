@@ -1,6 +1,6 @@
 #include "sm.h"
 
-#include "critical_data.hpp"
+#include "backup_data.hpp"
 
 #include "main.h"
 #include "i2c.h"
@@ -8,20 +8,22 @@
 #include "beep.h"
 #include "zlg7290.h"
 
-CRITICAL(uint32_t, SM_ResetJumpBack);
-CRITICAL(uint32_t, SM_Inititalized);
-CRITICAL(uint32_t, SM_Operation);
-CRITICAL(uint32_t, KeyPressed);
-CRITICAL(uint32_t, KeyData);
-CRITICAL(uint32_t, KeyNum);
-CRITICAL(uint32_t, TemperatureLow); // current lowest temperature
-CRITICAL(uint32_t, TemperatureHigh); // current highest temperature
-CRITICAL(uint32_t, TemperatureCurrent); // current temperature
-CRITICAL(uint32_t, IsEditing); // 0: not editing, 1: editing
-CRITICAL(uint32_t, CursorPos); // ranges in [0, 5]
-CRITICAL(uint32_t, EditTarget); // 0: low temperature, 1: high temperature
-CRITICAL(uint32_t, EditTemperate); // ranges in [0, 999999]
-CRITICAL(uint32_t, TemperatureHandleTick);
+BACKUP(uint32_t, SM_ResetJumpBack);
+BACKUP(uint32_t, SM_Inititalized);
+BACKUP(uint32_t, SM_Operation);
+BACKUP(uint32_t, KeyPressed);
+BACKUP(uint32_t, KeyData);
+BACKUP(uint32_t, KeyNum);
+BACKUP(uint32_t, TemperatureLow); // current lowest temperature
+BACKUP(uint32_t, TemperatureHigh); // current highest temperature
+BACKUP(uint32_t, TemperatureCurrent); // current temperature
+BACKUP(uint32_t, IsEditing); // 0: not editing, 1: editing
+BACKUP(uint32_t, CursorPos); // ranges in [0, 5]
+BACKUP(uint32_t, EditTarget); // 0: low temperature, 1: high temperature
+BACKUP(uint32_t, EditTemperate); // ranges in [0, 999999]
+BACKUP(uint32_t, TemperatureHandleTick);
+BACKUP(uint32_t, LastStep);
+BACKUP(uint32_t, LastResetTick);
 
 constexpr uint32_t SM_TEMPERATURE_LOW_INIT = 25 * 8 * 1000;
 constexpr uint32_t SM_TEMPERATURE_HIGH_INIT = 35 * 8 * 1000;
@@ -97,6 +99,9 @@ void SM_Init()
     ZLG7290_Write(&hi2c1, ZLG7290_ADDR_DPRAM0, display, sizeof(display));
     SM_Operation = SM_OPT_IS_EDITING;
 
+    BACKUP_SET(LastStep, SM_OPT_RESETHANDLER);
+    LastResetTick = HAL_GetTick();
+
     SM_Inititalized = 1;
 }
 
@@ -120,6 +125,17 @@ SM_STATE(SM_OPT_RESETHANDLER);
 
 void SM_Run()
 {
+    // Reset after several time automatically
+    constexpr uint32_t kGlobalResetTime = 600000;
+    uint32_t current_tick = HAL_GetTick();
+    if (!LastResetTick || current_tick - LastResetTick > kGlobalResetTime)
+    {
+        LastResetTick = current_tick;
+        const auto current_opt = SM_Operation.get();
+        SM_ResetJumpBack = current_opt;
+        SM_Operation = SM_OPT_RESETHANDLER;
+    }
+
     switch (SM_Operation)
     {
     SM_CASE(SM_OPT_IS_EDITING);
@@ -145,6 +161,20 @@ void SM_Run()
 
 SM_STATE(SM_OPT_IS_EDITING)
 {
+    uint32_t last_step;
+    BACKUP_GET(LastStep, last_step);
+    switch (last_step)
+    {
+    case SM_OPT_READ_KEY_INPUT:
+    case SM_OPT_READ_KEY_DELAY:
+    case SM_OPT_UPDATE_DISPLAY:
+    case SM_OPT_RESETHANDLER:
+        break;
+    default:
+        return SM_OPT_RESETHANDLER;
+    }
+    BACKUP_SET(LastStep, SM_OPT_IS_EDITING);
+
     if (!IsEditing)
         IsEditing = 0;
 
@@ -156,6 +186,17 @@ SM_STATE(SM_OPT_IS_EDITING)
 
 SM_STATE(SM_OPT_CHECK_TEMPTICK)
 {
+    uint32_t last_step;
+    BACKUP_GET(LastStep, last_step);
+    switch (last_step)
+    {
+    case SM_OPT_IS_EDITING:
+        break;
+    default:
+        return SM_OPT_RESETHANDLER;
+    }
+    BACKUP_SET(LastStep, SM_OPT_CHECK_TEMPTICK);
+
     constexpr uint32_t kTemperatureDelay = 5000;
     uint32_t current_tick = HAL_GetTick();
     if (!TemperatureHandleTick || current_tick - TemperatureHandleTick > kTemperatureDelay)
@@ -183,8 +224,18 @@ static constexpr T ReadAverData(T err, Fn&& func)
 
 SM_STATE(SM_OPT_READTEMP)
 {
-    LM75A_SetMode(LM75A_ADDR_CONF, LM75A_MODE_WORKING);
-    
+    uint32_t last_step;
+    BACKUP_GET(LastStep, last_step);
+    switch (last_step)
+    {
+    case SM_OPT_CHECK_TEMPTICK:
+        break;
+    default:
+        return SM_OPT_RESETHANDLER;
+    }
+    BACKUP_SET(LastStep, SM_OPT_READTEMP);
+
+    LM75A_SetMode(LM75A_ADDR_CONF, LM75A_MODE_WORKING);   
     const lm75a_temp_t temp = ReadAverData<lm75a_temp_t, 5>(LM75A_RESULT_ERROR, LM75A_GetTemp);
     LM75A_SetMode(LM75A_ADDR_CONF, LM75A_MODE_SHUTDOWN);
     if (temp != LM75A_RESULT_ERROR)
@@ -201,6 +252,17 @@ SM_STATE(SM_OPT_READTEMP)
 
 SM_STATE(SM_OPT_IS_TEMP_IN_RANGE)
 {
+    uint32_t last_step;
+    BACKUP_GET(LastStep, last_step);
+    switch (last_step)
+    {
+    case SM_OPT_READTEMP:
+        break;
+    default:
+        return SM_OPT_RESETHANDLER;
+    }
+    BACKUP_SET(LastStep, SM_OPT_IS_TEMP_IN_RANGE);
+
     if (!TemperatureLow)
     {
         TemperatureLow = SM_TEMPERATURE_LOW_INIT;
@@ -225,6 +287,17 @@ SM_STATE(SM_OPT_IS_TEMP_IN_RANGE)
 
 SM_STATE(SM_OPT_TEMP_OUT_OF_RANGE)
 {
+    uint32_t last_step;
+    BACKUP_GET(LastStep, last_step);
+    switch (last_step)
+    {
+    case SM_OPT_IS_TEMP_IN_RANGE:
+        break;
+    default:
+        return SM_OPT_RESETHANDLER;
+    }
+    BACKUP_SET(LastStep, SM_OPT_TEMP_OUT_OF_RANGE);
+
     constexpr uint32_t kBeepDuration = 1000;
     constexpr uint32_t kBeepFrequency = 2;
     for (uint32_t i = 0; i < kBeepDuration; i += 2 * kBeepFrequency)
@@ -239,21 +312,59 @@ SM_STATE(SM_OPT_TEMP_OUT_OF_RANGE)
 
 SM_STATE(SM_OPT_READ_KEY_INPUT)
 {
+    uint32_t last_step;
+    BACKUP_GET(LastStep, last_step);
+    switch (last_step)
+    {
+    case SM_OPT_IS_EDITING:
+    case SM_OPT_IS_TEMP_IN_RANGE:
+    case SM_OPT_TEMP_OUT_OF_RANGE:
+        break;
+    default:
+        return SM_OPT_RESETHANDLER;
+    }
+    BACKUP_SET(LastStep, SM_OPT_READ_KEY_INPUT);
+
     if (!KeyPressed || KeyPressed == 0)
         return SM_OPT_IS_EDITING;
     
     KeyPressed = 0;
     uint8_t buffer[3];
+
     auto status = ZLG7290_Read(&hi2c1, ZLG7290_ADDR_KEY, buffer, sizeof(buffer));
     if (status != HAL_OK)
         return SM_OPT_READ_KEY_DELAY;
+    for (size_t i = 1; i < 3; ++i)
+    {
+        uint8_t buffer2[3];
+        auto status2 = ZLG7290_Read(&hi2c1, ZLG7290_ADDR_KEY, buffer2, sizeof(buffer));
+        if (status2 != HAL_OK)
+            return SM_OPT_READ_KEY_DELAY;
+        if (buffer[0] == buffer2[0] && buffer[1] == buffer2[1] && buffer[2] == buffer2[2])
+        {
+            KeyData = buffer[0] | (buffer[1] << 8) | (buffer[2] << 16);
+            return SM_OPT_ON_KEY_PRESSED;
+        }
+    }
 
-    KeyData = buffer[0] | (buffer[1] << 8) | (buffer[2] << 16);
-    return SM_OPT_ON_KEY_PRESSED;
+    return SM_OPT_READ_KEY_DELAY;
 }
 
 SM_STATE(SM_OPT_READ_KEY_DELAY)
 {
+    uint32_t last_step;
+    BACKUP_GET(LastStep, last_step);
+    switch (last_step)
+    {
+    case SM_OPT_READ_KEY_INPUT:
+    case SM_OPT_ON_KEY_PRESSED:
+    case SM_OPT_SAVE_AND_EXIT_EDIT:
+        break;
+    default:
+        return SM_OPT_RESETHANDLER;
+    }
+    BACKUP_SET(LastStep, SM_OPT_READ_KEY_DELAY);
+
     constexpr uint32_t kEditingDelay = 20;
     HAL_Delay(kEditingDelay);
     return SM_OPT_IS_EDITING;
@@ -261,6 +372,17 @@ SM_STATE(SM_OPT_READ_KEY_DELAY)
 
 SM_STATE(SM_OPT_ON_KEY_PRESSED)
 {
+    uint32_t last_step;
+    BACKUP_GET(LastStep, last_step);
+    switch (last_step)
+    {
+    case SM_OPT_READ_KEY_INPUT:
+        break;
+    default:
+        return SM_OPT_RESETHANDLER;
+    }
+    BACKUP_SET(LastStep, SM_OPT_ON_KEY_PRESSED);
+
     if (!KeyData)
         KeyData = 0;
 
@@ -298,6 +420,17 @@ SM_STATE(SM_OPT_ON_KEY_PRESSED)
 
 SM_STATE(SM_OPT_UPDATE_KEYNUM)
 {
+    uint32_t last_step;
+    BACKUP_GET(LastStep, last_step);
+    switch (last_step)
+    {
+    case SM_OPT_ON_KEY_PRESSED:
+        break;
+    default:
+        return SM_OPT_RESETHANDLER;
+    }
+    BACKUP_SET(LastStep, SM_OPT_UPDATE_KEYNUM);
+
     if (!KeyNum)
         return SM_OPT_UPDATE_DISPLAY;
     const auto keynum = KeyNum.get();
@@ -350,6 +483,17 @@ SM_STATE(SM_OPT_UPDATE_KEYNUM)
 
 SM_STATE(SM_OPT_SWITCH_TARGET_LOW)
 {
+    uint32_t last_step;
+    BACKUP_GET(LastStep, last_step);
+    switch (last_step)
+    {
+    case SM_OPT_ON_KEY_PRESSED:
+        break;
+    default:
+        return SM_OPT_RESETHANDLER;
+    }
+    BACKUP_SET(LastStep, SM_OPT_SWITCH_TARGET_LOW);
+
     if (!IsEditing)
     {
         IsEditing = 0;
@@ -369,6 +513,17 @@ SM_STATE(SM_OPT_SWITCH_TARGET_LOW)
 
 SM_STATE(SM_OPT_SWITCH_TARGET_HIGH)
 {
+    uint32_t last_step;
+    BACKUP_GET(LastStep, last_step);
+    switch (last_step)
+    {
+    case SM_OPT_ON_KEY_PRESSED:
+        break;
+    default:
+        return SM_OPT_RESETHANDLER;
+    }
+    BACKUP_SET(LastStep, SM_OPT_SWITCH_TARGET_HIGH);
+
     if (!IsEditing)
     {
         IsEditing = 0;
@@ -388,6 +543,17 @@ SM_STATE(SM_OPT_SWITCH_TARGET_HIGH)
 
 SM_STATE(SM_OPT_MOVE_CURSOR_LEFT)
 {
+    uint32_t last_step;
+    BACKUP_GET(LastStep, last_step);
+    switch (last_step)
+    {
+    case SM_OPT_ON_KEY_PRESSED:
+        break;
+    default:
+        return SM_OPT_RESETHANDLER;
+    }
+    BACKUP_SET(LastStep, SM_OPT_MOVE_CURSOR_LEFT);
+
     if (!IsEditing)
     {
         IsEditing = 0;
@@ -405,6 +571,17 @@ SM_STATE(SM_OPT_MOVE_CURSOR_LEFT)
 
 SM_STATE(SM_OPT_MOVE_CURSOR_RIGHT)
 {
+    uint32_t last_step;
+    BACKUP_GET(LastStep, last_step);
+    switch (last_step)
+    {
+    case SM_OPT_ON_KEY_PRESSED:
+        break;
+    default:
+        return SM_OPT_RESETHANDLER;
+    }
+    BACKUP_SET(LastStep, SM_OPT_MOVE_CURSOR_RIGHT);
+
     if (!IsEditing)
     {
         IsEditing = 0;
@@ -422,6 +599,17 @@ SM_STATE(SM_OPT_MOVE_CURSOR_RIGHT)
 
 SM_STATE(SM_OPT_SWITCH_EDIT_MODE)
 {
+    uint32_t last_step;
+    BACKUP_GET(LastStep, last_step);
+    switch (last_step)
+    {
+    case SM_OPT_ON_KEY_PRESSED:
+        break;
+    default:
+        return SM_OPT_RESETHANDLER;
+    }
+    BACKUP_SET(LastStep, SM_OPT_SWITCH_EDIT_MODE);
+
     if (!IsEditing)
     {
         IsEditing = 0;
@@ -448,6 +636,17 @@ SM_STATE(SM_OPT_SWITCH_EDIT_MODE)
 
 SM_STATE(SM_OPT_SAVE_AND_EXIT_EDIT)
 {
+    uint32_t last_step;
+    BACKUP_GET(LastStep, last_step);
+    switch (last_step)
+    {
+    case SM_OPT_ON_KEY_PRESSED:
+        break;
+    default:
+        return SM_OPT_RESETHANDLER;
+    }
+    BACKUP_SET(LastStep, SM_OPT_SAVE_AND_EXIT_EDIT);
+
     if (!IsEditing)
     {
         IsEditing = 0;
@@ -488,6 +687,24 @@ SM_STATE(SM_OPT_SAVE_AND_EXIT_EDIT)
 
 SM_STATE(SM_OPT_UPDATE_DISPLAY)
 {
+    uint32_t last_step;
+    BACKUP_GET(LastStep, last_step);
+    switch (last_step)
+    {
+    case SM_OPT_ON_KEY_PRESSED:
+    case SM_OPT_UPDATE_KEYNUM:
+    case SM_OPT_SWITCH_TARGET_LOW:
+    case SM_OPT_SWITCH_TARGET_HIGH:
+    case SM_OPT_MOVE_CURSOR_LEFT:
+    case SM_OPT_MOVE_CURSOR_RIGHT:
+    case SM_OPT_SWITCH_EDIT_MODE:
+    case SM_OPT_SAVE_AND_EXIT_EDIT:
+        break;
+    default:
+        return SM_OPT_RESETHANDLER;
+    }
+    BACKUP_SET(LastStep, SM_OPT_UPDATE_DISPLAY);
+
     if (!IsEditing)
     {
         IsEditing = 0;
@@ -551,6 +768,7 @@ SM_STATE(SM_OPT_UPDATE_DISPLAY)
 extern "C" void Reset_Handler();
 SM_STATE(SM_OPT_RESETHANDLER)
 {
+    BACKUP_SET(LastStep, SM_OPT_RESETHANDLER);
     Reset_Handler();
     __builtin_unreachable();
     return SM_OPT_IS_EDITING;

@@ -50,52 +50,52 @@ private:
 template<typename T>
 critical_data<T>::critical_data(const T& data) noexcept
 {
-    set(data);
+    set((const T&)data);
 }
 
 template<typename T>
 critical_data<T>::critical_data(T&& data) noexcept
 {
-    set(data);
+    set((const T&)data);
 }
 
 template<typename T>
 critical_data<T>::critical_data(const critical_data& other) noexcept
 {
-    set(other.data_);
+    set((const T&)other.data_);
 }
 
 template<typename T>
 critical_data<T>::critical_data(critical_data&& other) noexcept
 {
-    set(other.data_);
+    set((const T&)other.data_);
 }
 
 template<typename T>
 critical_data<T>& critical_data<T>::operator=(const T& data) noexcept
 {
-    set(data);
+    set((const T&)data);
     return *this;
 }
 
 template<typename T>
 critical_data<T>& critical_data<T>::operator=(T&& data) noexcept
 {
-    set(data);
+    set((const T&)data);
     return *this;
 }
 
 template<typename T>
 critical_data<T>& critical_data<T>::operator=(const critical_data& other) noexcept
 {
-    set(other.data_);
+    set((const T&)other.data_);
     return *this;
 }
 
 template<typename T>
 critical_data<T>& critical_data<T>::operator=(critical_data&& other) noexcept
 {
-    set(other.data_);
+    set((const T&)other.data_);
     return *this;
 }
 

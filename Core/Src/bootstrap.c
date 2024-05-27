@@ -10,6 +10,15 @@ void Bootstrap_InitCriticalData()
         *p = 0;
 }
 
+extern void* _sbackup;
+extern void* _ebackup;
+void Boostrap_InitBackupData()
+{
+    // Set all of the backup data to 0
+    for (void** p = &_sbackup; p < &_ebackup; p++)
+        *p = 0;
+}
+
 #include "stm32f4xx.h"
 
 #define IF_MASK(t) if (RCC->CSR & (t))
@@ -34,6 +43,7 @@ void Boostrap()
     }
     else IF_MASK(RCC_CSR_PORRSTF_Msk) // Power-on reset
     {
+        Boostrap_InitBackupData();
         Bootstrap_InitCriticalData();
     }
     else IF_MASK(RCC_CSR_PINRSTF_Msk) // Pin reset
