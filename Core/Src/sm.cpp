@@ -829,3 +829,17 @@ extern "C" void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     if (GPIO_Pin == GPIO_PIN_13)
         BACKUP_SET(KeyPressed, 1);
 }
+
+extern "C" void HAL_Delay(uint32_t delay)
+{
+    const uint32_t tick_start = HAL_GetTick();
+    uint32_t delay_time = delay;
+
+    // Add a freq to guarantee minimum wait
+    if (delay_time < HAL_MAX_DELAY)
+        delay_time += uwTickFreq;
+
+    // Enter sleep mode for CPU to save power, but wait for delay ends at the same time
+    while ((HAL_GetTick() - tick_start) < delay_time)
+        __WFI();
+}
