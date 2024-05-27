@@ -54,25 +54,34 @@ enum
 
 void SM_Init()
 {
-    if (SM_Inititalized.is_valid() && SM_Inititalized)
+    if (BACKUP_IS_VALID(SM_Inititalized))
     {
-        if (SM_ResetJumpBack.is_valid())
+        uint32_t sm_initialized;
+        BACKUP_GET(SM_Inititalized, sm_initialized);
+        if (sm_initialized)
         {
-            const auto jmp_back = SM_ResetJumpBack.get();
-            SM_Operation = jmp_back;
+            if (BACKUP_IS_VALID(SM_ResetJumpBack))
+            {
+                uint32_t jmp_back;
+                BACKUP_GET(SM_ResetJumpBack, jmp_back);
+                SM_Operation = jmp_back;
+            }
+            return;
         }
-        return;
     }
         
     do
     {
-        TemperatureHandleTick = 0;
-        TemperatureLow = SM_TEMPERATURE_LOW_INIT;
-        TemperatureHigh = SM_TEMPERATURE_HIGH_INIT;
-        TemperatureCurrent = (TemperatureLow + TemperatureHigh) / 2;
-        if (TemperatureLow > TemperatureHigh)
-            continue;
-    } while (!TemperatureHandleTick || !TemperatureLow || !TemperatureHigh || !TemperatureCurrent);
+        BACKUP_SET(TemperatureHandleTick, 0);
+        BACKUP_SET(TemperatureLow, SM_TEMPERATURE_LOW_INIT);
+        BACKUP_SET(TemperatureHigh, SM_TEMPERATURE_HIGH_INIT);
+        BACKUP_SET(TemperatureCurrent, (TemperatureLow + TemperatureHigh) / 2);
+    } while (
+        !BACKUP_IS_VALID(TemperatureHandleTick) || 
+        !BACKUP_IS_VALID(TemperatureLow) || 
+        !BACKUP_IS_VALID(TemperatureHigh) || 
+        !BACKUP_IS_VALID(TemperatureCurrent)
+    );
 
     do
     {
@@ -80,7 +89,12 @@ void SM_Init()
         CursorPos = 0;
         EditTarget = 0;
         EditTemperate = 0;
-    } while (!IsEditing || !CursorPos || !EditTarget || !EditTemperate);
+    } while (
+        !BACKUP_IS_VALID(IsEditing) || 
+        !BACKUP_IS_VALID(CursorPos) || 
+        !BACKUP_IS_VALID(EditTarget) || 
+        !BACKUP_IS_VALID(EditTemperate)
+    );
 
     // Stop flash
     uint8_t cmd[2];
@@ -97,12 +111,11 @@ void SM_Init()
         ZLG7290_DISPLAY_MIDDLE, ZLG7290_DISPLAY_MIDDLE
     };
     ZLG7290_Write(&hi2c1, ZLG7290_ADDR_DPRAM0, display, sizeof(display));
-    SM_Operation = SM_OPT_IS_EDITING;
-
+    
+    BACKUP_SET(SM_Operation, SM_OPT_IS_EDITING);
     BACKUP_SET(LastStep, SM_OPT_RESETHANDLER);
-    LastResetTick = HAL_GetTick();
-
-    SM_Inititalized = 1;
+    BACKUP_SET(LastResetTick, HAL_GetTick());
+    BACKUP_SET(SM_Inititalized, 1);
 }
 
 SM_STATE(SM_OPT_IS_EDITING);
@@ -128,12 +141,14 @@ void SM_Run()
     // Reset after several time automatically
     constexpr uint32_t kGlobalResetTime = 600000;
     uint32_t current_tick = HAL_GetTick();
-    if (!LastResetTick || current_tick - LastResetTick > kGlobalResetTime)
+    uint32_t last_reset_tick;
+    BACKUP_GET(LastResetTick, last_reset_tick);
+    if (!BACKUP_IS_VALID(LastResetTick) || current_tick - last_reset_tick > kGlobalResetTime)
     {
-        LastResetTick = current_tick;
+        BACKUP_SET(LastResetTick, current_tick);
         const auto current_opt = SM_Operation.get();
-        SM_ResetJumpBack = current_opt;
-        SM_Operation = SM_OPT_RESETHANDLER;
+        BACKUP_SET(SM_ResetJumpBack, current_opt);
+        BACKUP_SET(SM_Operation, SM_OPT_RESETHANDLER);
     }
 
     switch (SM_Operation)
@@ -175,10 +190,12 @@ SM_STATE(SM_OPT_IS_EDITING)
     }
     BACKUP_SET(LastStep, SM_OPT_IS_EDITING);
 
-    if (!IsEditing)
-        IsEditing = 0;
+    if (!BACKUP_IS_VALID(IsEditing))
+        BACKUP_SET(IsEditing, 0);
 
-    if (IsEditing == 0)
+    uint32_t is_editing;
+    BACKUP_GET(IsEditing, is_editing);
+    if (is_editing == 0)
         return SM_OPT_CHECK_TEMPTICK;
 
     return SM_OPT_READ_KEY_INPUT;
@@ -199,9 +216,11 @@ SM_STATE(SM_OPT_CHECK_TEMPTICK)
 
     constexpr uint32_t kTemperatureDelay = 5000;
     uint32_t current_tick = HAL_GetTick();
-    if (!TemperatureHandleTick || current_tick - TemperatureHandleTick > kTemperatureDelay)
+    uint32_t temperature_tick;
+    BACKUP_GET(TemperatureHandleTick, temperature_tick);
+    if (!BACKUP_IS_VALID(TemperatureHandleTick) || current_tick - temperature_tick > kTemperatureDelay)
     {
-        TemperatureHandleTick = current_tick;
+        BACKUP_SET(TemperatureHandleTick, current_tick);
         return SM_OPT_READTEMP;
     }
     
@@ -240,13 +259,13 @@ SM_STATE(SM_OPT_READTEMP)
     LM75A_SetMode(LM75A_ADDR_CONF, LM75A_MODE_SHUTDOWN);
     if (temp != LM75A_RESULT_ERROR)
     {
-        TemperatureCurrent = static_cast<uint32_t>(temp) * 1000;
+        BACKUP_SET(TemperatureCurrent, static_cast<uint32_t>(temp) * 1000);
         return SM_OPT_IS_TEMP_IN_RANGE;
     }
     
     // Deadlock might happen here, so we try to 
     // recover the state by calling RESET_HANDLER
-    SM_ResetJumpBack = SM_OPT_READTEMP;
+    BACKUP_SET(SM_ResetJumpBack, SM_OPT_READTEMP);
     return SM_OPT_RESETHANDLER;
 }
 
@@ -263,23 +282,30 @@ SM_STATE(SM_OPT_IS_TEMP_IN_RANGE)
     }
     BACKUP_SET(LastStep, SM_OPT_IS_TEMP_IN_RANGE);
 
-    if (!TemperatureLow)
+    if (!BACKUP_IS_VALID(TemperatureLow))
     {
-        TemperatureLow = SM_TEMPERATURE_LOW_INIT;
+        BACKUP_SET(TemperatureLow, SM_TEMPERATURE_LOW_INIT);
         return SM_OPT_READ_KEY_INPUT;
     }
-    if (!TemperatureHigh)
+    if (!BACKUP_IS_VALID(TemperatureHigh))
     {
-        TemperatureHigh = SM_TEMPERATURE_HIGH_INIT;
+        BACKUP_SET(TemperatureHigh, SM_TEMPERATURE_HIGH_INIT);
         return SM_OPT_READ_KEY_INPUT;
     }
-    if (!TemperatureCurrent)
+    if (!BACKUP_IS_VALID(TemperatureCurrent))
     {
-        TemperatureCurrent = (TemperatureLow + TemperatureHigh) / 2;
+        BACKUP_SET(TemperatureCurrent, (TemperatureLow + TemperatureHigh) / 2);
         return SM_OPT_READ_KEY_INPUT;
     }
 
-    if (TemperatureCurrent < TemperatureLow || TemperatureCurrent > TemperatureHigh)
+    uint32_t temperature_low;
+    BACKUP_GET(TemperatureLow, temperature_low);
+    uint32_t temperature_high;
+    BACKUP_GET(TemperatureHigh, temperature_high);
+    uint32_t temperature_current;
+    BACKUP_GET(TemperatureCurrent, temperature_current);
+
+    if (temperature_current < temperature_low || temperature_current > temperature_high)
         return SM_OPT_TEMP_OUT_OF_RANGE;
 
     return SM_OPT_READ_KEY_INPUT;
@@ -325,10 +351,12 @@ SM_STATE(SM_OPT_READ_KEY_INPUT)
     }
     BACKUP_SET(LastStep, SM_OPT_READ_KEY_INPUT);
 
-    if (!KeyPressed || KeyPressed == 0)
+    uint32_t key_pressed;
+    BACKUP_GET(KeyPressed, key_pressed);
+    if (!BACKUP_IS_VALID(KeyPressed) || key_pressed == 0)
         return SM_OPT_IS_EDITING;
     
-    KeyPressed = 0;
+    BACKUP_SET(KeyPressed, 0);
     uint8_t buffer[3];
 
     auto status = ZLG7290_Read(&hi2c1, ZLG7290_ADDR_KEY, buffer, sizeof(buffer));
@@ -342,7 +370,7 @@ SM_STATE(SM_OPT_READ_KEY_INPUT)
             return SM_OPT_READ_KEY_DELAY;
         if (buffer[0] == buffer2[0] && buffer[1] == buffer2[1] && buffer[2] == buffer2[2])
         {
-            KeyData = buffer[0] | (buffer[1] << 8) | (buffer[2] << 16);
+            BACKUP_SET(KeyData, buffer[0] | (buffer[1] << 8) | (buffer[2] << 16));
             return SM_OPT_ON_KEY_PRESSED;
         }
     }
@@ -383,31 +411,36 @@ SM_STATE(SM_OPT_ON_KEY_PRESSED)
     }
     BACKUP_SET(LastStep, SM_OPT_ON_KEY_PRESSED);
 
-    if (!KeyData)
-        KeyData = 0;
+    uint32_t key_data;
+    BACKUP_GET(KeyData, key_data);
+    if (!BACKUP_IS_VALID(KeyData))
+    {
+        BACKUP_SET(KeyData, 0);
+        key_data = 0;
+    }
 
-    uint32_t key = KeyData & 0xff;
+    uint32_t key = key_data & 0xff;
     if (key == 0)
         return SM_OPT_READ_KEY_DELAY;
     
-    if (!IsEditing)
+    if (!BACKUP_IS_VALID(IsEditing))
     {
-        IsEditing = 0;
+        BACKUP_SET(IsEditing, 0);
         return SM_OPT_READ_KEY_DELAY;
     }
 
     switch (key)
     {
-    case ZLG7290_KEY_0: KeyNum = 0; return SM_OPT_UPDATE_KEYNUM;
-    case ZLG7290_KEY_1: KeyNum = 1; return SM_OPT_UPDATE_KEYNUM;
-    case ZLG7290_KEY_2: KeyNum = 2; return SM_OPT_UPDATE_KEYNUM;
-    case ZLG7290_KEY_3: KeyNum = 3; return SM_OPT_UPDATE_KEYNUM;
-    case ZLG7290_KEY_4: KeyNum = 4; return SM_OPT_UPDATE_KEYNUM;
-    case ZLG7290_KEY_5: KeyNum = 5; return SM_OPT_UPDATE_KEYNUM;
-    case ZLG7290_KEY_6: KeyNum = 6; return SM_OPT_UPDATE_KEYNUM;
-    case ZLG7290_KEY_7: KeyNum = 7; return SM_OPT_UPDATE_KEYNUM;
-    case ZLG7290_KEY_8: KeyNum = 8; return SM_OPT_UPDATE_KEYNUM;
-    case ZLG7290_KEY_9: KeyNum = 9; return SM_OPT_UPDATE_KEYNUM;
+    case ZLG7290_KEY_0: BACKUP_SET(KeyNum, 0); return SM_OPT_UPDATE_KEYNUM;
+    case ZLG7290_KEY_1: BACKUP_SET(KeyNum, 1); return SM_OPT_UPDATE_KEYNUM;
+    case ZLG7290_KEY_2: BACKUP_SET(KeyNum, 2); return SM_OPT_UPDATE_KEYNUM;
+    case ZLG7290_KEY_3: BACKUP_SET(KeyNum, 3); return SM_OPT_UPDATE_KEYNUM;
+    case ZLG7290_KEY_4: BACKUP_SET(KeyNum, 4); return SM_OPT_UPDATE_KEYNUM;
+    case ZLG7290_KEY_5: BACKUP_SET(KeyNum, 5); return SM_OPT_UPDATE_KEYNUM;
+    case ZLG7290_KEY_6: BACKUP_SET(KeyNum, 6); return SM_OPT_UPDATE_KEYNUM;
+    case ZLG7290_KEY_7: BACKUP_SET(KeyNum, 7); return SM_OPT_UPDATE_KEYNUM;
+    case ZLG7290_KEY_8: BACKUP_SET(KeyNum, 8); return SM_OPT_UPDATE_KEYNUM;
+    case ZLG7290_KEY_9: BACKUP_SET(KeyNum, 9); return SM_OPT_UPDATE_KEYNUM;
     case ZLG7290_KEY_A: return SM_OPT_SWITCH_TARGET_LOW;
     case ZLG7290_KEY_B: return SM_OPT_SWITCH_TARGET_HIGH;
     case ZLG7290_KEY_C: return SM_OPT_MOVE_CURSOR_LEFT;
@@ -431,37 +464,39 @@ SM_STATE(SM_OPT_UPDATE_KEYNUM)
     }
     BACKUP_SET(LastStep, SM_OPT_UPDATE_KEYNUM);
 
-    if (!KeyNum)
+    if (!BACKUP_IS_VALID(KeyNum))
         return SM_OPT_UPDATE_DISPLAY;
-    const auto keynum = KeyNum.get();
+    uint32_t keynum;
+    BACKUP_GET(KeyNum, keynum);
 
-    if (!IsEditing)
+    if (!BACKUP_IS_VALID(IsEditing))
     {
-        IsEditing = 0;
-        return SM_OPT_UPDATE_DISPLAY;
-    }
-
-    if (!EditTarget)
-    {
-        EditTarget = 0;
-        CursorPos = 0;
-        IsEditing = 0;
+        BACKUP_SET(IsEditing, 0);
         return SM_OPT_UPDATE_DISPLAY;
     }
 
-    if (!EditTemperate)
+    if (!BACKUP_IS_VALID(EditTarget))
     {
-        EditTemperate = 0;
-        CursorPos = 0;
-        IsEditing = 0;
+        BACKUP_SET(EditTarget, 0);
+        BACKUP_SET(CursorPos, 0);
+        BACKUP_SET(IsEditing, 0);
         return SM_OPT_UPDATE_DISPLAY;
     }
-    uint32_t new_value = EditTemperate;
 
-    if (!CursorPos)
+    if (!BACKUP_IS_VALID(EditTemperate))
     {
-        CursorPos = 0;
-        IsEditing = 0;
+        BACKUP_SET(EditTemperate, 0);
+        BACKUP_SET(CursorPos, 0);
+        BACKUP_SET(IsEditing, 0);
+        return SM_OPT_UPDATE_DISPLAY;
+    }
+    uint32_t new_value;
+    BACKUP_GET(EditTemperate, new_value);
+
+    if (!BACKUP_IS_VALID(CursorPos))
+    {
+        BACKUP_SET(CursorPos, 0);
+        BACKUP_SET(IsEditing, 0);
         return SM_OPT_UPDATE_DISPLAY;
     }
 
@@ -476,7 +511,7 @@ SM_STATE(SM_OPT_UPDATE_KEYNUM)
     default: __builtin_unreachable();
     }
     
-    EditTemperate = new_value;
+    BACKUP_SET(EditTemperate, new_value);
 
     return SM_OPT_UPDATE_DISPLAY;
 }
@@ -494,19 +529,16 @@ SM_STATE(SM_OPT_SWITCH_TARGET_LOW)
     }
     BACKUP_SET(LastStep, SM_OPT_SWITCH_TARGET_LOW);
 
-    if (!IsEditing)
-    {
-        IsEditing = 0;
-        return SM_OPT_UPDATE_DISPLAY;
-    }
+    BACKUP_SET(IsEditing, 1);
+    BACKUP_SET(EditTarget, 0);
+    BACKUP_SET(CursorPos, 0);
 
-    IsEditing = 1;
-    EditTarget = 0;
-    CursorPos = 0;
+    if (!BACKUP_IS_VALID(TemperatureLow))
+        BACKUP_SET(TemperatureLow, SM_TEMPERATURE_LOW_INIT);
 
-    if (!TemperatureLow)
-        TemperatureLow = SM_TEMPERATURE_LOW_INIT;
-    EditTemperate = TemperatureLow / 8 % 1000000;
+    uint32_t temperate_low;
+    BACKUP_GET(TemperatureLow, temperate_low);
+    BACKUP_SET(EditTemperate, temperate_low / 8 % 1000000);
     
     return SM_OPT_UPDATE_DISPLAY;
 }
@@ -524,19 +556,16 @@ SM_STATE(SM_OPT_SWITCH_TARGET_HIGH)
     }
     BACKUP_SET(LastStep, SM_OPT_SWITCH_TARGET_HIGH);
 
-    if (!IsEditing)
-    {
-        IsEditing = 0;
-        return SM_OPT_UPDATE_DISPLAY;
-    }
+    BACKUP_SET(IsEditing, 1);
+    BACKUP_SET(EditTarget, 1);
+    BACKUP_SET(CursorPos, 0);
 
-    IsEditing = 1;
-    EditTarget = 1;
-    CursorPos = 0;
-
-    if (!TemperatureHigh)
-        TemperatureHigh = SM_TEMPERATURE_HIGH_INIT;
-    EditTemperate = TemperatureHigh / 8 % 1000000;
+    if (!BACKUP_IS_VALID(TemperatureHigh))
+        BACKUP_SET(TemperatureHigh, SM_TEMPERATURE_HIGH_INIT);
+    
+    uint32_t temperate_high;
+    BACKUP_GET(TemperatureHigh, temperate_high);
+    BACKUP_SET(EditTemperate, temperate_high / 8 % 1000000);
 
     return SM_OPT_UPDATE_DISPLAY;
 }
@@ -554,17 +583,19 @@ SM_STATE(SM_OPT_MOVE_CURSOR_LEFT)
     }
     BACKUP_SET(LastStep, SM_OPT_MOVE_CURSOR_LEFT);
 
-    if (!IsEditing)
+    if (!BACKUP_IS_VALID(IsEditing))
     {
-        IsEditing = 0;
+        BACKUP_SET(IsEditing, 0);
         return SM_OPT_UPDATE_DISPLAY;
     }
 
-    if (!CursorPos)
-        CursorPos = 0;
+    if (!BACKUP_IS_VALID(CursorPos))
+        BACKUP_SET(CursorPos, 0);
 
-    if (CursorPos > 0)
-        CursorPos = CursorPos - 1;
+    uint32_t cur_pos;
+    BACKUP_GET(CursorPos, cur_pos);
+    if (cur_pos > 0)
+        BACKUP_SET(CursorPos, cur_pos - 1);
 
     return SM_OPT_UPDATE_DISPLAY;
 }
@@ -582,17 +613,19 @@ SM_STATE(SM_OPT_MOVE_CURSOR_RIGHT)
     }
     BACKUP_SET(LastStep, SM_OPT_MOVE_CURSOR_RIGHT);
 
-    if (!IsEditing)
+    if (!BACKUP_IS_VALID(IsEditing))
     {
-        IsEditing = 0;
+        BACKUP_SET(IsEditing, 0);
         return SM_OPT_UPDATE_DISPLAY;
     }
 
-    if (!CursorPos)
-        CursorPos = 0;
+    if (!BACKUP_IS_VALID(CursorPos))
+        BACKUP_SET(CursorPos, 0);
 
-    if (CursorPos < 5)
-        CursorPos = CursorPos + 1;
+    uint32_t cur_pos;
+    BACKUP_GET(CursorPos, cur_pos);
+    if (cur_pos < 5)
+        BACKUP_SET(CursorPos, cur_pos + 1);
 
     return SM_OPT_UPDATE_DISPLAY;
 }
@@ -610,26 +643,30 @@ SM_STATE(SM_OPT_SWITCH_EDIT_MODE)
     }
     BACKUP_SET(LastStep, SM_OPT_SWITCH_EDIT_MODE);
 
-    if (!IsEditing)
+    if (!BACKUP_IS_VALID(IsEditing))
     {
-        IsEditing = 0;
+        BACKUP_SET(IsEditing, 0);
         return SM_OPT_UPDATE_DISPLAY;
     }
+    uint32_t is_editing;
+    BACKUP_GET(IsEditing, is_editing);
 
-    if (IsEditing)
+    if (is_editing)
     {
-        IsEditing = 0;
-        CursorPos = 0;
-        EditTarget = 0;
+        BACKUP_SET(IsEditing, 0);
+        BACKUP_SET(CursorPos, 0);
+        BACKUP_SET(EditTarget, 0);
     }
     else
     {
-        IsEditing = 1;
-        CursorPos = 0;
-        EditTarget = 0;
-        if (!TemperatureLow)
-            TemperatureLow = SM_TEMPERATURE_LOW_INIT;
-        EditTemperate = TemperatureLow / 8 % 1000000;
+        BACKUP_SET(IsEditing, 1);
+        BACKUP_SET(CursorPos, 0);
+        BACKUP_SET(EditTarget, 0);
+        if (!BACKUP_IS_VALID(TemperatureLow))
+            BACKUP_SET(TemperatureLow, SM_TEMPERATURE_LOW_INIT);
+        uint32_t temperature_low;
+        BACKUP_GET(TemperatureLow, temperature_low);
+        BACKUP_SET(EditTemperate, temperature_low / 8 % 1000000);
     }
     return SM_OPT_UPDATE_DISPLAY;
 }
@@ -647,40 +684,49 @@ SM_STATE(SM_OPT_SAVE_AND_EXIT_EDIT)
     }
     BACKUP_SET(LastStep, SM_OPT_SAVE_AND_EXIT_EDIT);
 
-    if (!IsEditing)
+    if (!BACKUP_IS_VALID(IsEditing))
     {
-        IsEditing = 0;
+        BACKUP_SET(IsEditing, 0);
         return SM_OPT_UPDATE_DISPLAY;
     }
 
-    if (!IsEditing)
+    if (!BACKUP_IS_VALID(IsEditing))
         return SM_OPT_READ_KEY_DELAY;
 
-    IsEditing = 0;
-    CursorPos = 0;
-    if (!EditTarget)
+    BACKUP_SET(IsEditing, 0);
+    BACKUP_SET(CursorPos, 0);
+    if (!BACKUP_IS_VALID(EditTarget))
     {
-        EditTarget = 0;
+        BACKUP_SET(EditTarget, 0);
         return SM_OPT_UPDATE_DISPLAY;
     }
-    if (!EditTemperate)
+    if (!BACKUP_IS_VALID(EditTemperate))
     {
-        EditTemperate = 0;
+        BACKUP_SET(EditTemperate, 0);
         return SM_OPT_UPDATE_DISPLAY;
     }
 
-    uint32_t current_temp = EditTemperate * 8;
-    if (EditTarget == 0)
+    uint32_t current_temp;
+    BACKUP_GET(EditTemperate, current_temp);
+    current_temp *= 8;
+    uint32_t edit_target;
+    BACKUP_GET(EditTarget, edit_target);
+
+    if (edit_target == 0)
     {
-        if (current_temp > TemperatureHigh)
-            current_temp = TemperatureHigh;
-        TemperatureLow = current_temp;
+        uint32_t temperate_high;
+        BACKUP_GET(TemperatureHigh, temperate_high);
+        if (current_temp > temperate_high)
+            current_temp = temperate_high;
+        BACKUP_SET(TemperatureLow, current_temp);
     }
     else
     {
-        if (current_temp < TemperatureLow)
-            current_temp = TemperatureLow;
-        TemperatureHigh = current_temp;
+        uint32_t temperate_low;
+        BACKUP_GET(TemperatureLow, temperate_low);
+        if (current_temp < temperate_low)
+            current_temp = temperate_low;
+        BACKUP_SET(TemperatureHigh, current_temp);
     }
     return SM_OPT_UPDATE_DISPLAY;
 }
@@ -705,13 +751,15 @@ SM_STATE(SM_OPT_UPDATE_DISPLAY)
     }
     BACKUP_SET(LastStep, SM_OPT_UPDATE_DISPLAY);
 
-    if (!IsEditing)
+    if (!BACKUP_IS_VALID(IsEditing))
     {
-        IsEditing = 0;
+        BACKUP_SET(IsEditing, 0);
         return SM_OPT_IS_EDITING;
     }
 
-    if (IsEditing)
+    uint32_t is_editing;
+    BACKUP_GET(IsEditing, is_editing);
+    if (is_editing)
     {
         constexpr uint8_t display_table[10] 
         {
@@ -719,12 +767,14 @@ SM_STATE(SM_OPT_UPDATE_DISPLAY)
             ZLG7290_DISPLAY_NUM4, ZLG7290_DISPLAY_NUM5, ZLG7290_DISPLAY_NUM6, ZLG7290_DISPLAY_NUM7,
             ZLG7290_DISPLAY_NUM8, ZLG7290_DISPLAY_NUM9
         };
-        if (!EditTemperate)
-            EditTemperate = 0;
-        if (!CursorPos)
-            CursorPos = 0;
-        const auto temp = EditTemperate.get();
-        const auto cursor = CursorPos.get();
+        if (!BACKUP_IS_VALID(EditTemperate))
+            BACKUP_SET(EditTemperate, 0);
+        if (!BACKUP_IS_VALID(CursorPos))
+            BACKUP_SET(CursorPos, 0);
+        uint32_t temp;
+        BACKUP_GET(EditTemperate, temp);
+        uint32_t cursor;
+        BACKUP_GET(CursorPos, cursor);
 
         uint8_t display[8];
         display[0] = display[7] = 0;
@@ -742,7 +792,7 @@ SM_STATE(SM_OPT_UPDATE_DISPLAY)
         cmd[1] = 1 << (cursor + 1);
         ZLG7290_Write(&hi2c1, ZLG7290_ADDR_CMDBUF0, cmd, sizeof(cmd));
         
-        IsEditing = 1;
+        BACKUP_SET(IsEditing, 1);
     }
     else
     {
@@ -777,5 +827,5 @@ SM_STATE(SM_OPT_RESETHANDLER)
 extern "C" void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
     if (GPIO_Pin == GPIO_PIN_13)
-        KeyPressed = 1;
+        BACKUP_SET(KeyPressed, 1);
 }
