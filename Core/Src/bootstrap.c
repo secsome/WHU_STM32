@@ -10,20 +10,13 @@ void Bootstrap_InitCriticalData()
         *p = 0;
 }
 
-extern void* _sbackup1;
-extern void* _ebackup1;
-extern void* _sbackup2;
-extern void* _ebackup2;
-extern void* _sbackup3;
-extern void* _ebackup3;
+extern void* _sbackup;
+extern void* _ebackup;
+
 void Boostrap_InitBackupData()
 {
     // Set all of the backup data to 0
-    for (void** p = &_sbackup1; p < &_ebackup1; p++)
-        *p = 0;
-    for (void** p = &_sbackup2; p < &_ebackup2; p++)
-        *p = 0;
-    for (void** p = &_sbackup3; p < &_ebackup3; p++)
+    for (void** p = &_sbackup; p < &_ebackup; p++)
         *p = 0;
 }
 

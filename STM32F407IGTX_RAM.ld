@@ -163,35 +163,15 @@ SECTIONS
   } >RAM
 
   /* Backup data sections in RAM but need to be initialized only once */
-  .backup1 :
+  .backup :
   {
     . = ALIGN(4);
-    _sbackup1 = .;        /* create a global symbol at backup start */
-    *(.backup1)           /* .backup sections */
-    *(.backup1*)          /* .backup* sections */
+    _sbackup = .;        /* create a global symbol at backup start */
+    *(.backup)           /* .backup sections */
+    *(.backup*)          /* .backup* sections */
 
     . = ALIGN(4);
-    _ebackup1 = .;        /* define a global symbol at backup end */
-  } >RAM
-  .backup2 :
-  {
-    . = ALIGN(4);
-    _sbackup2 = .;        /* create a global symbol at backup start */
-    *(.backup2)           /* .backup sections */
-    *(.backup2*)          /* .backup* sections */
-
-    . = ALIGN(4);
-    _ebackup2 = .;        /* define a global symbol at backup end */
-  } >RAM
-  .backup3 :
-  {
-    . = ALIGN(4);
-    _sbackup3 = .;        /* create a global symbol at backup start */
-    *(.backup3)           /* .backup sections */
-    *(.backup3*)          /* .backup* sections */
-
-    . = ALIGN(4);
-    _ebackup3 = .;        /* define a global symbol at backup end */
+    _ebackup = .;        /* define a global symbol at backup end */
   } >RAM
 
   _siccmram = LOADADDR(.ccmram);
