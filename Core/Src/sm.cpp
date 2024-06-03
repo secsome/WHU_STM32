@@ -343,6 +343,7 @@ SM_STATE(SM_OPT_READ_KEY_INPUT)
     switch (last_step)
     {
     case SM_OPT_IS_EDITING:
+    case SM_OPT_CHECK_TEMPTICK:
     case SM_OPT_IS_TEMP_IN_RANGE:
     case SM_OPT_TEMP_OUT_OF_RANGE:
         break;
@@ -841,5 +842,5 @@ extern "C" void HAL_Delay(uint32_t delay)
 
     // Enter sleep mode for CPU to save power, but wait for delay ends at the same time
     while ((HAL_GetTick() - tick_start) < delay_time)
-        __WFI();
+        ;
 }
