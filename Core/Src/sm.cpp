@@ -139,7 +139,7 @@ SM_STATE(SM_OPT_RESETHANDLER);
 void SM_Run()
 {
     // Reset after several time automatically
-    constexpr uint32_t kGlobalResetTime = 600000;
+    constexpr uint32_t kGlobalResetTime = 30000;
     uint32_t current_tick = HAL_GetTick();
     uint32_t last_reset_tick;
     BACKUP_GET(LastResetTick, last_reset_tick);
