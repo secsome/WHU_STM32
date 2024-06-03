@@ -135,6 +135,17 @@ SECTIONS
   /* Used by the startup to initialize data */
   _sidata = LOADADDR(.data);
 
+  /* Backup data sections in RAM but need to be initialized only once */
+  .backup2 :
+  {
+    . = ALIGN(4);
+    _sbackup2 = .;        /* create a global symbol at backup start */
+    *(.backup2)           /* .backup sections */
+
+    . = ALIGN(4);
+    _ebackup2 = .;        /* define a global symbol at backup end */
+  } >RAM
+
   /* Initialized data sections into "RAM" Ram type memory */
   .data :
   {
@@ -182,15 +193,14 @@ SECTIONS
   } >RAM
 
   /* Backup data sections in RAM but need to be initialized only once */
-  .backup :
+  .backup1 :
   {
     . = ALIGN(4);
-    _sbackup = .;        /* create a global symbol at backup start */
-    *(.backup)           /* .backup sections */
-    *(.backup*)          /* .backup* sections */
+    _sbackup1 = .;        /* create a global symbol at backup start */
+    *(.backup1)           /* .backup sections */
 
     . = ALIGN(4);
-    _ebackup = .;        /* define a global symbol at backup end */
+    _ebackup1 = .;        /* define a global symbol at backup end */
   } >RAM
 
   /* Uninitialized data section into "RAM" Ram type memory */
@@ -218,6 +228,17 @@ SECTIONS
     . = . + _Min_Heap_Size;
     . = . + _Min_Stack_Size;
     . = ALIGN(8);
+  } >RAM
+
+  /* Backup data sections in RAM but need to be initialized only once */
+  .backup3 :
+  {
+    . = ALIGN(4);
+    _sbackup3 = .;        /* create a global symbol at backup start */
+    *(.backup3)           /* .backup sections */
+
+    . = ALIGN(4);
+    _ebackup3 = .;        /* define a global symbol at backup end */
   } >RAM
 
   /* Remove information from the compiler libraries */
