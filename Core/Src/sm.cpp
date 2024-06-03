@@ -241,6 +241,36 @@ static constexpr T ReadAverData(T err, Fn&& func)
     return result / N;
 }
 
+static lm75a_temp_t READTEMPIMPL1()
+{
+    const lm75a_temp_t temp = ReadAverData<lm75a_temp_t, 5>(LM75A_RESULT_ERROR, LM75A_GetTemp);
+    return temp;
+}
+
+static lm75a_temp_t READTEMPIMPL2()
+{
+    const lm75a_temp_t temp = ReadAverData<lm75a_temp_t, 5>(LM75A_RESULT_ERROR, LM75A_GetTemp);
+    return temp;
+}
+
+static lm75a_temp_t READTEMPIMPL3()
+{
+    const lm75a_temp_t temp = ReadAverData<lm75a_temp_t, 5>(LM75A_RESULT_ERROR, LM75A_GetTemp);
+    return temp;
+}
+
+static lm75a_temp_t READTEMPIMPLS()
+{
+    uint32_t option = RNG->DR;
+    switch (option % 3)
+    {
+    case 0: return READTEMPIMPL1();
+    case 1: return READTEMPIMPL2();
+    case 2: return READTEMPIMPL3();
+    default: __builtin_unreachable();
+    }
+}
+
 SM_STATE(SM_OPT_READTEMP)
 {
     uint32_t last_step;
@@ -255,7 +285,7 @@ SM_STATE(SM_OPT_READTEMP)
     BACKUP_SET(LastStep, SM_OPT_READTEMP);
 
     LM75A_SetMode(LM75A_ADDR_CONF, LM75A_MODE_WORKING);   
-    const lm75a_temp_t temp = ReadAverData<lm75a_temp_t, 5>(LM75A_RESULT_ERROR, LM75A_GetTemp);
+    const auto temp = READTEMPIMPLS();
     LM75A_SetMode(LM75A_ADDR_CONF, LM75A_MODE_SHUTDOWN);
     if (temp != LM75A_RESULT_ERROR)
     {
