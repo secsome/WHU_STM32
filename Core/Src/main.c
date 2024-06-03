@@ -116,6 +116,7 @@ int main(void)
   MX_IWDG_Init();
   MX_RNG_Init();
   /* USER CODE BEGIN 2 */
+  
   SM_Init();
   /* USER CODE END 2 */
 
@@ -249,7 +250,9 @@ static void MX_IWDG_Init(void)
 {
 
   /* USER CODE BEGIN IWDG_Init 0 */
-
+#ifdef DEBUG
+  return; // Disable IWDG in debug mode
+#endif
   /* USER CODE END IWDG_Init 0 */
 
   /* USER CODE BEGIN IWDG_Init 1 */
