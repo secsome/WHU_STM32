@@ -110,7 +110,9 @@ int main(void)
   MX_I2C1_Init();
   MX_USART1_UART_Init();
   MX_CRC_Init();
+#ifndef DEBUG
   MX_IWDG_Init();
+#endif
   /* USER CODE BEGIN 2 */
   SM_Init();
   /* USER CODE END 2 */
@@ -122,7 +124,9 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+#ifndef DEBUG
     HAL_IWDG_Refresh(&hiwdg);
+#endif
     SM_Run();
   }
   /* USER CODE END 3 */
