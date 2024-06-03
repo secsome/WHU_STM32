@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Cortex Debug",
+            "type": "cortex-debug",
+            "request": "launch",
+            "executable": "${workspaceFolder}/Debug/STEMP.elf",
+            "cwd": "${workspaceFolder}",
+            "servertype": "stlink",
+            "device": "STM32F407IGTX",
+            "interface": "swd",
+            // "showDevDebugOutput": "raw",
+            "svdPath": "C:\\ST\\STM32CubeIDE_1.15.1\\STM32CubeIDE\\plugins\\com.st.stm32cube.ide.mcu.productdb.debug_2.1.300.202404050853\\resources\\cmsis\\STMicroelectronics_CMSIS_SVD\\STM32F407.svd",
+            //"runToEntryPoint": "main",
+            "serverpath": "C:\\ST\\STM32CubeIDE_1.15.1\\STM32CubeIDE\\plugins\\com.st.stm32cube.ide.mcu.externaltools.stlink-gdb-server.win32_2.1.300.202403291623\\tools\\bin\\ST-LINK_gdbserver.exe"
+        }
+    ]
+}
