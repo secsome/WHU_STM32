@@ -833,6 +833,7 @@ extern "C" void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 extern "C" void HAL_Delay(uint32_t delay)
 {
+    HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
     const uint32_t tick_start = HAL_GetTick();
     uint32_t delay_time = delay;
 
